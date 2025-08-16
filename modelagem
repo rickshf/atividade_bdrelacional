@@ -1,0 +1,51 @@
+Table Usuario {
+  id_usuario integer [primary key, increment]
+  nome varchar(255) [not null]
+  email varchar(255) [unique, not null]
+  // Armazena como "latitude,longitude" para simplicidade.
+  // Em um banco de dados geoespacial, usar um tipo como GEOMETRY ou POINT seria ideal.
+  localizacao_padrao varchar(50) 
+}
+
+Table Alerta_Oficial {
+  id_alerta integer [primary key, increment]
+  tipo_evento varchar(100) [not null]
+  data_hora_emissao timestamp [not null]
+  // Armazena a definição da área, que pode ser um polígono de coordenadas.
+  area_alerta text
+}
+
+Table Relato_Cidadao {
+  id_relato integer [primary key, increment]
+  descricao_texto text
+  // Armazena como "latitude,longitude".
+  coordenadas_gps varchar(50) [not null]
+  data_hora_relato timestamp [default: `now()`]
+  
+  // Chaves Estrangeiras
+  id_usuario_fk integer [not null]
+  id_alerta_associado_fk integer // Pode ser nulo, pois um relato pode não estar ligado a um alerta oficial
+}
+
+// Tabela Associativa para o relacionamento N:M entre Usuario e Alerta_Oficial
+Table Usuario_Recebe_Alerta {
+  id_usuario_fk integer [not null]
+  id_alerta_fk integer [not null]
+  data_visualizacao timestamp
+  
+  // Chave primária composta para garantir que um usuário só receba o mesmo alerta uma vez.
+  Indexes {
+    (id_usuario_fk, id_alerta_fk) [pk]
+  }
+}
+
+// Definição dos Relacionamentos
+// Um Usuário pode enviar muitos Relatos
+Ref: Relato_Cidadao.id_usuario_fk > Usuario.id_usuario
+
+// Um Alerta Oficial pode estar associado a muitos Relatos de Cidadãos (para validação)
+Ref: Relato_Cidadao.id_alerta_associado_fk > Alerta_Oficial.id_alerta
+
+// Relacionamentos da tabela associativa (Muitos-para-Muitos)
+Ref: Usuario_Recebe_Alerta.id_usuario_fk > Usuario.id_usuario
+Ref: Usuario_Recebe_Alerta.id_alerta_fk > Alerta_Oficial.id_alerta
