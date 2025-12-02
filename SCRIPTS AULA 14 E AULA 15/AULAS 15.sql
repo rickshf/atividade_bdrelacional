@@ -1,103 +1,98 @@
--- Contexto: Biblioteca
--- 1. Stored Procedure para atualizar o autor de um livro Esta procedure recebe o ID do livro e o novo nome do autor, atualizando o registro.
+-- Stored Procedures for Biblioteca and Projeto ABP
 
-
-CREATE OR REPLACE PROCEDURE sp_atualizar_autor(
-    id_livro_p INT, 
-    novo_autor_p VARCHAR
-)
-LANGUAGE SQL
-AS $$
-    UPDATE livro 
-    SET autor = novo_autor_p 
-    WHERE id_livro = id_livro_p;
-$$;
-
--- Testando:
--- CALL sp_atualizar_autor(1, 'Machado de Assis Junior');
-
-
--- 2. Stored Procedure para excluir livro pelo ID Esta procedure remove um livro baseado no ID fornecido.
-
-CREATE OR REPLACE PROCEDURE sp_excluir_livro(
-    id_livro_p INT
-)
-LANGUAGE SQL
-AS $$
-    DELETE FROM livro 
-    WHERE id_livro = id_livro_p;
-$$;
-
--- Testando:
--- CALL sp_excluir_livro(1);
-
--- Contexto: Projeto ABP (limnologia_db)
---Aqui focamos nas tabelas principais do projeto de monitoramento de água.
-
---1. Stored Procedure para cadastrar reservatório Insere um novo reservatório na tabela.
-
-CREATE OR REPLACE PROCEDURE sp_cadastrar_reservatorio(
-    nome_reservatorio_p VARCHAR
-)
-LANGUAGE SQL
-AS $$
-    INSERT INTO reservatorio (nome) 
-    VALUES (nome_reservatorio_p);
-$$;
-
--- 2. Stored Procedure para cadastrar parâmetro ambiental Insere um novo parâmetro (ex: 'pH', 'Turbidez').
-
-CREATE OR REPLACE PROCEDURE sp_cadastrar_parametro(
-    nome_parametro_p VARCHAR
-)
-LANGUAGE SQL
-AS $$
-    INSERT INTO parametro (nome_parametro) 
-    VALUES (nome_parametro_p);
-$$;
-
--- 3. Stored Procedure para registrar medição Esta procedure insere os dados na tabela de série temporal (baseada no exemplo do slide 21 ).
-
-
-CREATE OR REPLACE PROCEDURE sp_registrar_medicao(
-    id_reservatorio_p INT,
-    id_parametro_p INT,
-    valor_p NUMERIC,
-    data_p TIMESTAMP
-)
-LANGUAGE SQL
-AS $$
-    INSERT INTO serie_temporal (id_reservatorio, id_parametro, valor, data_hora)
-    VALUES (id_reservatorio_p, id_parametro_p, valor_p, data_p);
-$$;
-
-
-
--- O exercício pede uma procedure que não permita valor negativo e mostre uma mensagem de erro.
-
--- Para usar condicionais (IF/THEN) e lançar exceções (RAISE EXCEPTION), precisamos mudar a linguagem de SQL para plpgsql
-
-
-CREATE OR REPLACE PROCEDURE sp_registrar_medicao_segura(
-    id_reservatorio_p INT,
-    id_parametro_p INT,
-    valor_p NUMERIC,
-    data_p TIMESTAMP
+-- 1) Biblioteca - Atualizar autor de um livro
+CREATE OR REPLACE PROCEDURE sp_atualiza_autor_livro(
+    p_id_livro INT,
+    p_id_autor INT
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- Validação: Se o valor for negativo, para a execução e mostra erro
-    IF valor_p < 0 THEN
-        RAISE EXCEPTION 'Erro: O valor da medição (%) não pode ser negativo.', valor_p;
-    END IF;
+    UPDATE livro
+    SET id_autor = p_id_autor
+    WHERE id_livro = p_id_livro;
 
-    -- Se passou na validação, insere o dado
-    INSERT INTO serie_temporal (id_reservatorio, id_parametro, valor, data_hora)
-    VALUES (id_reservatorio_p, id_parametro_p, valor_p, data_p);
-    
-    -- Opcional: Mensagem de sucesso (aparece no output do log)
-    RAISE NOTICE 'Medição registrada com sucesso.';
+    RAISE NOTICE 'Autor do livro % atualizado para o autor %', p_id_livro, p_id_autor;
 END;
 $$;
 
+-- 2) Biblioteca - Excluir livro pelo id
+CREATE OR REPLACE PROCEDURE sp_excluir_livro(p_id INT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM livro
+    WHERE id_livro = p_id;
+
+    RAISE NOTICE 'Livro % excluído com sucesso', p_id;
+END;
+$$;
+
+-- 3) ABP - Cadastrar reservatório
+CREATE OR REPLACE PROCEDURE sp_cadastrar_reservatorio(
+    p_nome TEXT,
+    p_lat NUMERIC,
+    p_lon NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO reservatorio (nome, latitude, longitude)
+    VALUES (p_nome, p_lat, p_lon);
+
+    RAISE NOTICE 'Reservatório % cadastrado com sucesso', p_nome;
+END;
+$$;
+
+-- 4) ABP - Cadastrar parâmetro ambiental
+CREATE OR REPLACE PROCEDURE sp_cadastrar_parametro(
+    p_nome TEXT,
+    p_unidade TEXT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO parametro_ambiental (nome, unidade)
+    VALUES (p_nome, p_unidade);
+
+    RAISE NOTICE 'Parâmetro % cadastrado', p_nome;
+END;
+$$;
+
+-- 5) ABP - Registrar medição
+CREATE OR REPLACE PROCEDURE sp_registrar_medicao(
+    p_id_reservatorio INT,
+    p_id_parametro INT,
+    p_valor NUMERIC,
+    p_data DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO medicao(id_reservatorio, id_parametro, valor, data_medicao)
+    VALUES (p_id_reservatorio, p_id_parametro, p_valor, p_data);
+
+    RAISE NOTICE 'Medição registrada com valor: %', p_valor;
+END;
+$$;
+
+-- 6) Bônus Avançado - Validação de valor negativo
+CREATE OR REPLACE PROCEDURE sp_validar_e_registrar_medicao(
+    p_id_reservatorio INT,
+    p_id_parametro INT,
+    p_valor NUMERIC,
+    p_data DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_valor < 0 THEN
+        RAISE EXCEPTION 'Valor inválido! Não é permitido valor negativo (%).', p_valor;
+    END IF;
+
+    INSERT INTO medicao(id_reservatorio, id_parametro, valor, data_medicao)
+    VALUES (p_id_reservatorio, p_id_parametro, p_valor, p_data);
+
+    RAISE NOTICE 'Medição registrada com valor: %', p_valor;
+END;
+$$;
